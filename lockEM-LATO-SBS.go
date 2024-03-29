@@ -151,7 +151,7 @@ func printResults(fileInfo fileData, csvFormat bool, delimChar string) {
 
 
 func checkFilePath(filePath string, elfOnly bool, entropyMaxVal float64) (fileInfo fileData, err error) {
-        isElfType, err := fileutils.IsElfType(filePath)
+        isElfType, err := funcs.IsElfType(filePath)
         if err != nil {
                 return fileInfo, err
         }
@@ -164,7 +164,7 @@ func checkFilePath(filePath string, elfOnly bool, entropyMaxVal float64) (fileIn
 
         // If they only want Linux ELFs.
         if elfOnly && isElfType {
-                entropy, err := fileutils.Entropy(filePath)
+                entropy, err := funcs.Entropy(filePath)
                 if err != nil {
                         log.Fatalf("error calculating entropy for file (%s): %v\n", filePath, err)
                 }
@@ -172,7 +172,7 @@ func checkFilePath(filePath string, elfOnly bool, entropyMaxVal float64) (fileIn
         }
         // They want entropy on all files.
         if !elfOnly {
-                entropy, err := fileutils.Entropy(filePath)
+                entropy, err := funcs.Entropy(filePath)
                 if err != nil {
                         log.Fatalf("error calculating entropy for file (%s): %v\n", filePath, err)
                 }
