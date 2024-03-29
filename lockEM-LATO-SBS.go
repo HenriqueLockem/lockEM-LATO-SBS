@@ -9,7 +9,7 @@ import (
         "path/filepath"
         "strconv"
 
-        "github.com/HenriqueLockem/lockEM-LATO-SBS"
+        "github.com/HenriqueLockem/lockEM-LATO-SBS/funcs"
 )
 
 const (
