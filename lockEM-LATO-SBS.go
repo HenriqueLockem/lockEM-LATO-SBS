@@ -52,7 +52,7 @@ func main() {
         flag.Parse()
 
         if version {
-                fmt.Printf("LockEM LATO Entropy Scanner Version %s\n", constVersion)
+                fmt.Printf("LockEM LATO SnapShot Based Scan Version %s\n", constVersion)
                 fmt.Printf("Copyright (c) 2024 LockEM - www.lockem.tech\n\n")
                 os.Exit(0)
         }
