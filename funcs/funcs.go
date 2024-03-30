@@ -20,9 +20,17 @@ const (
 	// Magic number for basic ELF type
 	constMagicNumElf = "7f454c46"
 	
-	// Windows PE executable header"
-	Win0="0x4D"
-	Win1="0x5A"	
+	 // Windows PE executable header bytes
+        constNumReadPE = 2
+        // windows HEaders
+        //MZ Format
+        ImageMZSignature = "4d5a"
+        ImageZMSignature = "5a4d"
+        ImageOS2Signature = "454e"
+        ImageOS2LESignature = "454c"
+        ImageVXDSignature = "584c"
+        ImageTESignature = "5a56"
+        ImageNTSignature = "00004550" // PE00	
 )
 
 
@@ -67,30 +75,41 @@ func IsElfType(path string) (isElf bool, err error) {
 		return false, err
 	}
 	if len(elfType) > constMagicNumRead {
-		return false, fmt.Errorf("elf magic number string is longer than magic number read bytes")
+		return false, fmt.Errorf("number string is longer than number read bytes")
 	}
 
 	if bytes.Equal(hexData[:len(elfType)], elfType) {
 		return true, nil
 	}
 
-// Read the first two bytes to check for the PE signature ("MZ")
-    signature := make([]byte, 2)
-    _, err = f.Read(signature)
-    if err != nil {
-        return false, err
-    }
+	//detect WIndows PE 4bytes
 
-    // Check if the signature matches "MZ" (0x4D 0x5A)
-    if signature[0] == 0x4D && signature[1] == 0x5A {
-        return true, nil
-    }
-
-        if err != nil {
-                return false, err
+        hexString4 := hex.EncodeToString(hexData[:])
+        if hexString4 == ImageNTSignature {
+            return true, nil
         }
+
+
+	// Parse first two bytes to check for the PE signature ("MZ")
+        hexString := hex.EncodeToString(hexData[:constNumReadPE])
+	
+	// Detect signatures for each hexadecimal string
+        found := detectPESignature(hexString)
+        if found {
+                return true, nil // It's a PE executable
+	}
 	return false, nil
 }
+
+func detectPESignature(hexString string) (detect bool) {
+        switch hexString {
+        case ImageMZSignature, ImageZMSignature, ImageOS2Signature, ImageOS2LESignature, ImageVXDSignature, ImageTESignature:
+                return true
+        default:
+                return false
+        }
+}
+
 
 // Calculates entropy of a file.
 func Entropy(path string) (entropy float64, err error) {
