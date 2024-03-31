@@ -2,6 +2,10 @@ package funcs
 
 import (
 	"bytes"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -20,17 +24,17 @@ const (
 	// Magic number for basic ELF type
 	constMagicNumElf = "7f454c46"
 	
-	 // Windows PE executable header bytes
-        constNumReadPE = 2
-        // windows HEaders
-        //MZ Format
-        ImageMZSignature = "4d5a"
-        ImageZMSignature = "5a4d"
-        ImageOS2Signature = "454e"
-        ImageOS2LESignature = "454c"
-        ImageVXDSignature = "584c"
-        ImageTESignature = "5a56"
-        ImageNTSignature = "00004550" // PE00	
+	// Windows PE executable header bytes
+	constNumReadPE = 2	
+	// windows HEaders 
+	//MZ Format
+	ImageMZSignature = "4d5a"
+	ImageZMSignature = "5a4d"
+	ImageOS2Signature = "454e"
+	ImageOS2LESignature = "454c"
+	ImageVXDSignature = "584c"
+	ImageTESignature = "5a56"
+	ImageNTSignature = "00004550" // PE00
 )
 
 
@@ -38,7 +42,6 @@ const (
 // Pass in a path and we'll see if the magic number is Linux ELF type.
 func IsElfType(path string) (isElf bool, err error) {
 	var hexData [constMagicNumRead]byte
-
 	if path == "" {
 		return false, fmt.Errorf("must provide a path to file to get ELF type")
 	}
@@ -66,6 +69,7 @@ func IsElfType(path string) (isElf bool, err error) {
 	}
 
 	err = binary.Read(f, binary.LittleEndian, &hexData)
+
 	if err != nil {
 		return false, err
 	}
@@ -75,39 +79,42 @@ func IsElfType(path string) (isElf bool, err error) {
 		return false, err
 	}
 	if len(elfType) > constMagicNumRead {
-		return false, fmt.Errorf("number string is longer than number read bytes")
+		return false, fmt.Errorf("elf magic number string is longer than magic number read bytes")
 	}
 
 	if bytes.Equal(hexData[:len(elfType)], elfType) {
 		return true, nil
 	}
 
-	//detect WIndows PE 4bytes
+//detect WIndows PE 4bytes
 
         hexString4 := hex.EncodeToString(hexData[:])
-        if hexString4 == ImageNTSignature {
-            return true, nil
-        }
-
-
-	// Parse first two bytes to check for the PE signature ("MZ")
-        hexString := hex.EncodeToString(hexData[:constNumReadPE])
-	
-	// Detect signatures for each hexadecimal string
-        found := detectPESignature(hexString)
-        if found {
-                return true, nil // It's a PE executable
+	if hexString4 == ImageNTSignature {
+	    return true, nil
 	}
-	return false, nil
+
+
+// Parse first two bytes to check for the PE signature ("MZ")
+	hexString := hex.EncodeToString(hexData[:constNumReadPE])
+// Detect signatures for each hexadecimal string
+
+	found := detectPESignature(hexString)
+	if found {
+    		return true, nil // It's a PE executable
+}
+
+
+	
+return false, nil
 }
 
 func detectPESignature(hexString string) (detect bool) {
-        switch hexString {
-        case ImageMZSignature, ImageZMSignature, ImageOS2Signature, ImageOS2LESignature, ImageVXDSignature, ImageTESignature:
-                return true
-        default:
-                return false
-        }
+	switch hexString {
+	case ImageMZSignature, ImageZMSignature, ImageOS2Signature, ImageOS2LESignature, ImageVXDSignature, ImageTESignature:
+		return true
+	default:
+		return false
+	}
 }
 
 
@@ -173,4 +180,174 @@ func Entropy(path string) (entropy float64, err error) {
 
 	// Returns rounded to nearest two decimals.
 	return math.Round(entropy*100) / 100, nil
+
+
 }
+// Generates MD5 hash of a file
+func HashMD5(path string) (hash string, err error) {
+	if path == "" {
+		return hash, fmt.Errorf("must provide a path to file to hash")
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't open path (%s): %v", path, err)
+	}
+	defer f.Close()
+
+	fStat, err := f.Stat()
+	if err != nil {
+		return hash, err
+	}
+
+	if !fStat.Mode().IsRegular() {
+		return hash, fmt.Errorf("file (%s) is not a regular file to calculate hash", path)
+	}
+
+	// Zero sized file is no hash.
+	if fStat.Size() == 0 {
+		return hash, nil
+	}
+
+	if fStat.Size() > int64(constMaxFileSize) {
+		return hash, fmt.Errorf("file size (%d) is too large to calculate hash (max allowed: %d)",
+			fStat.Size(), int64(constMaxFileSize))
+	}
+
+	hashMD5 := md5.New()
+	_, err = io.Copy(hashMD5, f)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't read path (%s) to get MD5 hash: %v", path, err)
+	}
+
+	hash = hex.EncodeToString(hashMD5.Sum(nil))
+
+	return hash, nil
+}
+
+// Generates SHA1 hash of a file
+func HashSHA1(path string) (hash string, err error) {
+	if path == "" {
+		return hash, fmt.Errorf("must provide a path to file to hash")
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't open path (%s): %v", path, err)
+	}
+	defer f.Close()
+
+	fStat, err := f.Stat()
+	if err != nil {
+		return hash, err
+	}
+
+	if !fStat.Mode().IsRegular() {
+		return hash, fmt.Errorf("file (%s) is not a regular file to calculate hash", path)
+	}
+
+	// Zero sized file is no hash.
+	if fStat.Size() == 0 {
+		return hash, nil
+	}
+
+	if fStat.Size() > int64(constMaxFileSize) {
+		return hash, fmt.Errorf("file size (%d) is too large to calculate hash (max allowed: %d)",
+			fStat.Size(), int64(constMaxFileSize))
+	}
+
+	hashSHA1 := sha1.New()
+	_, err = io.Copy(hashSHA1, f)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't read path (%s) to get SHA1 hash: %v", path, err)
+	}
+
+	hash = hex.EncodeToString(hashSHA1.Sum(nil))
+
+	return hash, nil
+}
+
+// Generates SHA256 hash of a file
+func HashSHA256(path string) (hash string, err error) {
+	if path == "" {
+		return hash, fmt.Errorf("must provide a path to file to hash")
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't open path (%s): %v", path, err)
+	}
+	defer f.Close()
+
+	fStat, err := f.Stat()
+	if err != nil {
+		return hash, err
+	}
+
+	if !fStat.Mode().IsRegular() {
+		return hash, fmt.Errorf("file (%s) is not a regular file to calculate hash", path)
+	}
+
+	// Zero sized file is no hash.
+	if fStat.Size() == 0 {
+		return hash, nil
+	}
+
+	if fStat.Size() > int64(constMaxFileSize) {
+		return hash, fmt.Errorf("file size (%d) is too large to calculate hash (max allowed: %d)",
+			fStat.Size(), int64(constMaxFileSize))
+	}
+
+	hashSHA256 := sha256.New()
+	_, err = io.Copy(hashSHA256, f)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't read path (%s) to get SHA256 hash: %v", path, err)
+	}
+
+	hash = hex.EncodeToString(hashSHA256.Sum(nil))
+
+	return hash, nil
+}
+
+// Generates SHA512 hash of a file
+func HashSHA512(path string) (hash string, err error) {
+	if path == "" {
+		return hash, fmt.Errorf("must provide a path to file to hash")
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't open path (%s): %v", path, err)
+	}
+	defer f.Close()
+
+	fStat, err := f.Stat()
+	if err != nil {
+		return hash, err
+	}
+
+	if !fStat.Mode().IsRegular() {
+		return hash, fmt.Errorf("file (%s) is not a regular file to calculate hash", path)
+	}
+
+	// Zero sized file is no hash.
+	if fStat.Size() == 0 {
+		return hash, nil
+	}
+
+	if fStat.Size() > int64(constMaxFileSize) {
+		return hash, fmt.Errorf("file size (%d) is too large to calculate hash (max allowed: %d)",
+			fStat.Size(), int64(constMaxFileSize))
+	}
+
+	hashSHA512 := sha512.New()
+	_, err = io.Copy(hashSHA512, f)
+	if err != nil {
+		return hash, fmt.Errorf("couldn't read path (%s) to get SHA512 hash: %v", path, err)
+	}
+
+	hash = hex.EncodeToString(hashSHA512.Sum(nil))
+
+	return hash, nil
+}
+
