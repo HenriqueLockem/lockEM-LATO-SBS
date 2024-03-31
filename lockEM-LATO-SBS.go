@@ -8,13 +8,16 @@ import (
         "path"
         "path/filepath"
         "strconv"
-
+	"time"
         "github.com/HenriqueLockem/lockEM-LATO-SBS/funcs"
+	"encoding/json"
+
+
 )
 
 const (
         // constVersion Version
-        constVersion = "1.1.1"
+        constVersion = "1.1"
         // constProcDir default /proc dir for processes.
         constProcDir = "/proc"
         // constDelimeterDefault default delimiter for CSV output.
@@ -30,9 +33,27 @@ type fileData struct {
         name    string
         entropy float64
         elf     bool
+	hash    hashes
+
+//	path    string  `json:"path"`
+ //   	name    string  `json:"name"`
+  //  	entropy float64 `json:"entropy"`
+   // 	elf     bool    `json:"elf"`
 }
+
+
+type hashes struct {
+	md5    string
+	sha1   string
+	sha256 string
+	sha512 string
+}
+
 func main() {
-        var filePath string
+        
+	start := time.Now()
+	var analyzedFiles int
+	var filePath string
         var dirPath string
         var delimChar string
         var entropyMaxVal float64
@@ -40,6 +61,8 @@ func main() {
         var procOnly bool
         var csvOutput bool
         var version bool
+
+	analyzedFiles = 0
 
         flag.StringVar(&filePath, "file", "", "full path to a single file to analyze")
         flag.StringVar(&dirPath, "dir", "", "directory name to analyze")
@@ -52,7 +75,7 @@ func main() {
         flag.Parse()
 
         if version {
-                fmt.Printf("LockEM LATO SnapShot Based Scan Version %s\n", constVersion)
+                fmt.Printf("LockEM LATO Entropy Scanner Version %s\n", constVersion)
                 fmt.Printf("Copyright (c) 2024 LockEM - www.lockem.tech\n\n")
                 os.Exit(0)
         }
@@ -93,7 +116,8 @@ func main() {
 
                 if fileInfo.entropy >= entropyMaxVal {
                         printResults(fileInfo, csvOutput, delimChar)
-                }
+			analyzedFiles++        
+        }
 
                 os.Exit(0)
         }
@@ -115,7 +139,8 @@ func main() {
 
                                                 if fileInfo.entropy >= entropyMaxVal {
                                                         printResults(fileInfo, csvOutput, delimChar)
-                                                }
+       							analyzedFiles++                
+	                         }
                                         }
                                 }
                         }
@@ -125,28 +150,52 @@ func main() {
                 if err != nil {
                         log.Fatalf("error walking directory (%s): %v\n", dirPath, err)
                 }
-                os.Exit(0)
+                elapsed :=time.Since(start)
+        	fmt.Printf("Analyzed %v files in %s\n", analyzedFiles, elapsed) 
+
+		os.Exit(0)
         }
+
 }
 // Prints results
 func printResults(fileInfo fileData, csvFormat bool, delimChar string) {
-
         if !csvFormat {
-                fmt.Printf("filename: %s\npath: %s\nentropy: %.2f\nExecutable_Detected:  %v\n\n",
+                fmt.Printf("filename: %s\npath: %s\nentropy: %.2f\nExecutable_Detected:  %v\nmd5: %s\nsha1: %s\nsha256: %s\nsha512: %s\n\n",
                         fileInfo.name,
                         fileInfo.path,
                         fileInfo.entropy,
-                        fileInfo.elf)
+                        fileInfo.elf,
+			fileInfo.hash.md5,
+			fileInfo.hash.sha1,
+			fileInfo.hash.sha256,
+			fileInfo.hash.sha512)
         } else {
-                fmt.Printf("%s%s%s%s%.2f%v\n",
+                fmt.Printf("%s%s%s%s%.2f%s%v%s%s%s%s%s%s%s%s\n",
                         fileInfo.name,
                         delimChar,
                         fileInfo.path,
                         delimChar,
                         fileInfo.entropy,
                         delimChar,
-                        fileInfo.elf)
-        }
+                        fileInfo.elf
+			delimChar,
+			fileInfo.hash.md5,
+			delimChar,
+			fileInfo.hash.sha1,
+			delimChar,
+			fileInfo.hash.sha256,
+			delimChar,
+			fileInfo.hash.sha512)
+	 }
+	if fileInfo.elf && !csvFormat {
+		jsonData, err := json.Marshal(fileInfo)
+		if err != nil {
+			fmt.Println("Error marshalling JSON:", err)
+			return
+		}
+		fmt.Println(string(jsonData))
+	}
+
 }
 
 
@@ -178,6 +227,28 @@ func checkFilePath(filePath string, elfOnly bool, entropyMaxVal float64) (fileIn
                 }
                 fileInfo.entropy = entropy
         }
+	if fileInfo.entropy >= entropyMaxVal {
+		md5, err := funcs.HashMD5(filePath)
+		if err != nil {
+			log.Fatalf("error calculating MD5 hash for file (%s): %v\n", filePath, err)
+		}
+		sha1, err := funcs.HashSHA1(filePath)
+		if err != nil {
+			log.Fatalf("error calculating SHA1 hash for file (%s): %v\n", filePath, err)
+		}
+		sha256, err := funcs.HashSHA256(filePath)
+		if err != nil {
+			log.Fatalf("error calculating SHA256 hash for file (%s): %v\n", filePath, err)
+		}
+		sha512, err := funcs.HashSHA512(filePath)
+		if err != nil {
+			log.Fatalf("error calculating SHA512 hash for file (%s): %v\n", filePath, err)
+		}
+		fileInfo.hash.md5 = md5
+		fileInfo.hash.sha1 = sha1
+		fileInfo.hash.sha256 = sha256
+		fileInfo.hash.sha512 = sha512
+	}
 
         return fileInfo, nil
 }
@@ -190,3 +261,5 @@ func genPIDExePaths() (pidPaths []string, err error) {
 
         return pidPaths, nil
 }
+
+        
