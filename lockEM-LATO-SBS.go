@@ -29,24 +29,19 @@ const (
 )
 
 type fileData struct {
-        path    string
-        name    string
-        entropy float64
-        elf     bool
-	hash    hashes
-
-//	path    string  `json:"path"`
- //   	name    string  `json:"name"`
-  //  	entropy float64 `json:"entropy"`
-   // 	elf     bool    `json:"elf"`
+ 	Name    string  `json:"name"`
+        Path    string  `json:"path"`
+        Entropy float64 `json:"entropy"`
+        Elf     bool    `json:"suspect"`
+        Hash    hashes  `json:"hash"`
 }
 
 
 type hashes struct {
-	md5    string
-	sha1   string
-	sha256 string
-	sha512 string
+        Md5    string `json:"md5"`
+        Sha1   string `json:"sha1"`
+        Sha256 string `json:"sha256"`
+        SSDeep string `json:"ssdeep"`
 }
 
 func main() {
@@ -68,14 +63,14 @@ func main() {
         flag.StringVar(&dirPath, "dir", "", "directory name to analyze")
         flag.StringVar(&delimChar, "delim", constDelimeterDefault, "delimeter for CSV output")
         flag.Float64Var(&entropyMaxVal, "entropy", 0, "show any file with entropy greater than or equal to this value (0.0 - 8.0 max 8.0, default is 0)")
-        flag.BoolVar(&elfOnly, "elf", false, "only check ELF executables")
+        flag.BoolVar(&elfOnly, "elf", false, "only check suspicious files")
         flag.BoolVar(&procOnly, "proc", false, "check running processes")
-        flag.BoolVar(&csvOutput, "csv", false, "output results in CSV format (filename, path, entropy, elf_file [true|false])")
+        flag.BoolVar(&csvOutput, "csv", false, "output results in CSV format (filename, path, entropy, suspicious files [true|false])")
         flag.BoolVar(&version, "version", false, "show version and exit")
         flag.Parse()
 
         if version {
-                fmt.Printf("LockEM LATO Entropy Scanner Version %s\n", constVersion)
+                fmt.Printf("LockEM LATO Cloud Agent Version %s\n", constVersion)
                 fmt.Printf("Copyright (c) 2024 LockEM - www.lockem.tech\n\n")
                 os.Exit(0)
         }
@@ -116,6 +111,7 @@ func main() {
 
                 if fileInfo.entropy >= entropyMaxVal {
                         printResults(fileInfo, csvOutput, delimChar)
+	                printJSONResults(fileInfo)
 			analyzedFiles++        
         }
 
@@ -139,6 +135,7 @@ func main() {
 
                                                 if fileInfo.entropy >= entropyMaxVal {
                                                         printResults(fileInfo, csvOutput, delimChar)
+							printJSONResults(fileInfo)
        							analyzedFiles++                
 	                         }
                                         }
@@ -157,19 +154,32 @@ func main() {
         }
 
 }
+
+// Function to print results in JSON format
+func printJSONResults(fileInfo fileData) {
+        jsonData, err := json.Marshal(fileInfo)
+        if err != nil {
+                log.Println("Error marshalling JSON: %v\n", err)
+        }
+            fmt.Println(string(jsonData))
+
+
+}
+
 // Prints results
 func printResults(fileInfo fileData, csvFormat bool, delimChar string) {
-        if !csvFormat {
-                fmt.Printf("filename: %s\npath: %s\nentropy: %.2f\nExecutable_Detected:  %v\nmd5: %s\nsha1: %s\nsha256: %s\nsha512: %s\n\n",
-                        fileInfo.name,
-                        fileInfo.path,
-                        fileInfo.entropy,
-                        fileInfo.elf,
-			fileInfo.hash.md5,
-			fileInfo.hash.sha1,
-			fileInfo.hash.sha256,
-			fileInfo.hash.sha512)
-        } else {
+//        if !csvFormat {
+//                fmt.Printf("filename: %s\npath: %s\nentropy: %.2f\nExecutable_Detected:  %v\nmd5: %s\nsha1: %s\nsha256: %s\nsha512: %s\n\n",
+//                        fileInfo.name,
+//                        fileInfo.path,
+//                        fileInfo.entropy,
+//                        fileInfo.elf,
+//			fileInfo.hash.md5,
+//			fileInfo.hash.sha1,
+//			fileInfo.hash.sha256,
+//			fileInfo.hash.sha512)
+//        } else {
+	if csvFormat{ 
                 fmt.Printf("%s%s%s%s%.2f%s%v%s%s%s%s%s%s%s%s\n",
                         fileInfo.name,
                         delimChar,
@@ -187,15 +197,6 @@ func printResults(fileInfo fileData, csvFormat bool, delimChar string) {
 			delimChar,
 			fileInfo.hash.sha512)
 	 }
-	if fileInfo.elf && !csvFormat {
-		jsonData, err := json.Marshal(fileInfo)
-		if err != nil {
-			fmt.Println("Error marshalling JSON:", err)
-			return
-		}
-		fmt.Println(string(jsonData))
-	}
-
 }
 
 
@@ -240,14 +241,14 @@ func checkFilePath(filePath string, elfOnly bool, entropyMaxVal float64) (fileIn
 		if err != nil {
 			log.Fatalf("error calculating SHA256 hash for file (%s): %v\n", filePath, err)
 		}
-		sha512, err := funcs.HashSHA512(filePath)
+		ssdeep, err := funcs.SSDeepHash(filePath)
 		if err != nil {
-			log.Fatalf("error calculating SHA512 hash for file (%s): %v\n", filePath, err)
+			log.Fatalf("error calculating SSDeep hash for file (%s): %v\n", filePath, err)
 		}
 		fileInfo.hash.md5 = md5
 		fileInfo.hash.sha1 = sha1
 		fileInfo.hash.sha256 = sha256
-		fileInfo.hash.sha512 = sha512
+		fileInfo.hash.SSDeep = ssdeep
 	}
 
         return fileInfo, nil
